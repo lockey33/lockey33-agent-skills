@@ -1,0 +1,4 @@
+interface:
+  display_name: "Session Handoff"
+  short_description: "Resume a Claude or Codex session from its ID"
+  default_prompt: "Resume context from a session ID"

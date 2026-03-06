@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a cross-agent handoff packet from a Claude or Codex session ID."""
+"""Generate a cross-agent handoff packet from a Claude, Codex, or Kimi session ID."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from typing import Any, Iterable, Optional
 HOME = Path.home()
 CLAUDE_ROOT = HOME / ".claude"
 CODEX_ROOT = HOME / ".codex"
+KIMI_ROOT = HOME / ".kimi"
 
 
 @dataclass
@@ -41,7 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("session_id", help="Session ID to resume")
     parser.add_argument(
         "--provider",
-        choices=["auto", "claude", "codex"],
+        choices=["auto", "claude", "codex", "kimi"],
         default="auto",
         help="Force provider or auto-detect (default: auto)",
     )
@@ -261,6 +262,82 @@ def _parse_codex_session(session_id: str, file_path: Path) -> SessionData:
     )
 
 
+def _find_kimi_session_file(session_id: str) -> Optional[Path]:
+    """Kimi sessions: ~/.kimi/sessions/<workspace_hash>/<session_id>/context.jsonl"""
+    sessions_root = KIMI_ROOT / "sessions"
+    if not sessions_root.exists():
+        return None
+    # session_id is the UUID directory name
+    matches = list(sessions_root.glob(f"*/{session_id}/context.jsonl"))
+    return matches[0] if matches else None
+
+
+def _extract_kimi_text(content: Any) -> str:
+    """Extract visible text from kimi content (string or list of blocks).
+    Kimi assistant content is a list of blocks with type: 'think' | 'text'.
+    We skip 'think' blocks (internal reasoning) and extract 'text' blocks only.
+    """
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    chunks: list[str] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text" and isinstance(block.get("text"), str):
+            chunks.append(block["text"])
+    return "\n".join(chunks)
+
+
+def _parse_kimi_session(session_id: str, file_path: Path) -> SessionData:
+    messages: list[Message] = []
+    # Kimi doesn't embed cwd/branch in context.jsonl — infer from path
+    cwd = str(file_path.parent.parent.parent.parent)  # best-effort
+    started_at = None
+
+    with file_path.open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            row = _safe_json(line)
+            if not row:
+                continue
+
+            role = row.get("role")
+            if role in ("_checkpoint",):
+                # Extract timestamp from checkpoint if present
+                if not started_at and isinstance(row.get("timestamp"), str):
+                    started_at = row["timestamp"]
+                continue
+
+            if role not in ("user", "assistant"):
+                continue
+
+            text = _normalize(_extract_kimi_text(row.get("content", "")))
+            if not text or _is_noise(text):
+                continue
+
+            ts = row.get("timestamp")
+            messages.append(Message(role=role, text=text, timestamp=ts))
+            if not started_at and ts:
+                started_at = ts
+
+    # Use file mtime as fallback for started_at
+    if not started_at:
+        import datetime as dt
+        mtime = file_path.stat().st_mtime
+        started_at = dt.datetime.fromtimestamp(mtime, tz=dt.timezone.utc).isoformat()
+
+    return SessionData(
+        provider="kimi",
+        session_id=session_id,
+        source_file=file_path,
+        cwd=cwd,
+        branch=None,
+        started_at=started_at,
+        messages=messages,
+    )
+
+
 def _format_ts(ts: Optional[str]) -> str:
     if not ts:
         return "unknown"
@@ -325,6 +402,7 @@ def build_packet(data: SessionData, max_messages: int, full: bool) -> str:
 def resolve_session(session_id: str, provider: str) -> SessionData:
     claude_file = _find_claude_session_file(session_id)
     codex_file = _find_codex_session_file(session_id)
+    kimi_file = _find_kimi_session_file(session_id)
 
     if provider == "claude":
         if not claude_file:
@@ -336,21 +414,29 @@ def resolve_session(session_id: str, provider: str) -> SessionData:
             raise FileNotFoundError(f"Codex session not found: {session_id}")
         return _parse_codex_session(session_id, codex_file)
 
-    if claude_file and codex_file:
-        claude_mtime = claude_file.stat().st_mtime
-        codex_mtime = codex_file.stat().st_mtime
-        return (
-            _parse_claude_session(session_id, claude_file)
-            if claude_mtime >= codex_mtime
-            else _parse_codex_session(session_id, codex_file)
-        )
+    if provider == "kimi":
+        if not kimi_file:
+            raise FileNotFoundError(f"Kimi session not found: {session_id}")
+        return _parse_kimi_session(session_id, kimi_file)
 
+    # auto: pick the most recently modified match across all providers
+    candidates: list[tuple[float, str, Path]] = []
     if claude_file:
-        return _parse_claude_session(session_id, claude_file)
+        candidates.append((claude_file.stat().st_mtime, "claude", claude_file))
     if codex_file:
-        return _parse_codex_session(session_id, codex_file)
+        candidates.append((codex_file.stat().st_mtime, "codex", codex_file))
+    if kimi_file:
+        candidates.append((kimi_file.stat().st_mtime, "kimi", kimi_file))
 
-    raise FileNotFoundError(f"Session not found in Claude or Codex logs: {session_id}")
+    if not candidates:
+        raise FileNotFoundError(f"Session not found in Claude, Codex, or Kimi logs: {session_id}")
+
+    _, best_provider, best_file = max(candidates, key=lambda t: t[0])
+    if best_provider == "claude":
+        return _parse_claude_session(session_id, best_file)
+    if best_provider == "codex":
+        return _parse_codex_session(session_id, best_file)
+    return _parse_kimi_session(session_id, best_file)
 
 
 def main() -> int:

@@ -22,25 +22,26 @@
 
 ---
 
-## 🧠 Agent Infrastructure — OPERATIONAL
+## 🧠 Agent Infrastructure — PARTIELLEMENT OPERATIONAL
 
-### Cron Jobs Configured
-**Sync Memory** — */30 * * * *
-- Script : `/home/agent/.scripts/sync-memory-to-notion.sh`
-- Target : Notion page Agent Memory
-- Status : ✅ Actif
+### Problème Cron Jobs Identifié ⚠️
+**Date** : 2026-03-07
+**Issue** : Impossible de créer une BDD Notion via outils MCP
 
-**Sync Cron Tracker** — 5,35 * * * *
-- Script : `/home/agent/.scripts/sync-cron-to-notion.sh`
-- Target : Dashboard Cron Jobs
-- Status : ✅ Actif
+**Détails** :
+- MCP Notion limite : création de **pages** uniquement, pas de **databases** avec propriétés
+- `sync-cron-to-notion.sh` = stub inopérant (log local uniquement)
+- **Aucun crontab actif** (crontab -l vide)
+- La "Cron DB" référencée (31c5d20f187281199addfee16e270d46) → ID invalide / inexistant
 
-**Log** : `/home/agent/.scripts/sync-cron.log`
-
-### Notion Pages
+**Pages existantes (OK)** :
 - **Agent Memory** : https://www.notion.so/Agent-Memory-Sync-Automatique-31c5d20f18728150910fc5e39e0e0ae4
 - **Cron Dashboard** : https://www.notion.so/Cron-Jobs-Dashboard-31c5d20f18728125a689c55030a5932d
-- **Cron DB** : https://www.notion.so/Cron-Jobs-Base-de-donn-es-31c5d20f187281199addfee16e270d46
+
+### Options de Fix
+1. **Manuel** : Laurent crée la DB dans Notion UI → Diego adapte le script
+2. **Page formatée** : Utiliser blocs structurés (pas de filtres mais visuel OK)
+3. **Local + backup** : JSON local comme source de vérité
 
 ---
 
@@ -52,9 +53,8 @@
 3. **Deadline** : 21 mars 2026
 
 ### Infrastructure
-- ✅ Memory sync automatisé
-- ✅ Cron jobs trackés
-- 🔄 Améliorer scripts de sync (erreurs MCP Notion)
+- ❌ Cron jobs non actifs (nécessite intervention manuelle Notion)
+- 🔄 Decision pending : Option 1 (DB manuelle) recommandée
 
 ---
 
@@ -67,7 +67,7 @@
 
 **Chemins clés** :
 - `/home/agent/` — Workspace principal
-- `/home/agent/.scripts/` — Scripts persistants
+- `/home/agent/.scripts/` — Scripts persistants (sync-cron.sh à fixer)
 - `/root/.agent-memory/context.md` — Mémoire locale
 
 ---
@@ -75,7 +75,7 @@
 ## 💾 Persistence
 
 **GitHub** : `lockey33-labs/lockey33-agent-skills/memory/`
-- Commit : ec84ead (2026-03-07)
-- Status : ✅ Sync réussi
+- Dernier commit : ec84ead (2026-03-07)
+- Status : 🔄 Mise à jour requise
 
-**Notion** : Auto-sync toutes les 30 min
+**Notion** : Sync mémoire actif (toutes les 30 min) — cron lui-même KO

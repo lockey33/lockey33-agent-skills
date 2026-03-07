@@ -1,29 +1,36 @@
 # Session Context — lockey33-agent
 
+## 2026-03-07 — Cron Jobs CONFIGURÉS ✅
+
+### Infrastructure Cron — OPÉRATIONNELLE
+
+**Installation** : cron package installé et démarré (PID 758)
+
+**Crontab actif** :
+```
+*/30 * * * *  →  Agent Memory Sync (GitHub)
+0 * * * *     →  Cron Jobs Tracker Sync (Notion)
+```
+
+**Scripts** :
+- ✅ `/home/agent/.scripts/sync-memory.sh` — créé et testé
+- ✅ `/home/agent/.scripts/sync-cron-to-notion.sh` — existant
+- ✅ Logs : `/home/agent/.scripts/*-sync.log`
+
+**Test manuel** : Memory sync OK (pas de changement depuis dernier commit)
+
+---
+
 ## 2026-03-07 — Cleanup Cron Jobs Notion ✅
 
 ### Nettoyage effectué
 **Pages supprimées** (doublons) :
-- ❌ "Cron Jobs — Dashboard" (31c5d20f-1872-8125-a689-c55030a5932d)
-- ❌ "SYNC — Cron Jobs vers Notion" (31c5d20f-1872-81af-bb4a-fc799523f955)
+- ❌ "Cron Jobs — Dashboard" 
+- ❌ "SYNC — Cron Jobs vers Notion"
 
 **Structure actuelle** (propre) :
-- ✅ **Page parent** : "Cron Jobs — Base de données" (31c5d20f-1872-8119-9add-fee16e270d46)
-- ✅ **Database** : "📋 Cron Jobs Tracker" (31c5d20f-1872-811b-afbe-c45cf78e5d6e)
-- ✅ **Tâches dans LifeOS** : 
-  - "CRON — Agent Memory Sync" (active)
-  - "CRON — Cron Jobs Tracker Sync" (active)
-
-### Database Cron Jobs — OPÉRATIONNELLE
-**ID** : `31c5d20f-1872-811b-afbe-c45cf78e5d6e`
-**URL** : https://www.notion.so/31c5d20f187281bafbec45cf78e5d6e
-
-**Propriétés** (10 champs) :
-- **Nom** (title), **ID** (rich_text), **Commande** (rich_text), **Schedule** (rich_text)
-- **Statut** (select) : Actif / Inactif / Erreur
-- **Serveur** (select) : Hetzner / Local / Cloudflare
-- **Dernier exécution** (date), **Prochaine exécution** (date)
-- **Dernière sortie** (rich_text), **Description** (rich_text)
+- ✅ **Page parent** : "Cron Jobs — Base de données"
+- ✅ **Database** : "📋 Cron Jobs Tracker" (10 propriétés)
 
 ---
 
@@ -34,10 +41,11 @@
 2. **Semaine prochaine** : Setup repo GitHub + début MVP
 3. **Deadline** : 21 mars 2026
 
-### Infrastructure Cron
-- ✅ Database Notion créée et nettoyée
-- ⏳ Peuplement manuel ou via script (token requis)
-- ❌ Crontab vide — à configurer
+### Infrastructure
+- ✅ Cron installé et configuré
+- ✅ Scripts de sync opérationnels
+- ⏳ Token GitHub pour push auto (optionnel)
+- ⏳ Token Notion pour peuplement BDD cron
 
 ---
 
@@ -46,18 +54,16 @@
 **Container** : Podman rootless → Workspace agent (Ubuntu)
 **User** : root (sudo sans password)
 **Packages** : apt-get, cron ✅, jq ✅
-**Git** : Configuré (commit local OK, push manuel)
+**Git** : Configuré (commits locaux)
 
-**Scripts persistants** :
-- `/home/agent/.scripts/sync-cron-to-notion.sh` — prêt, attend token Notion
-- `/home/agent/.scripts/sync-memory.sh` — à vérifier
+**Cron actif** : oui (toutes les 30 min + toutes les heures)
 
 ---
 
 ## 💾 Persistence
 
 **GitHub** : `lockey33-labs/lockey33-agent-skills/memory/`
-- Commit local : `4df33c7` — push manuel requis
+- Commits locaux prêts, push manuel possible
 
 **Notion** :
 - Agent Memory : https://www.notion.so/Agent-Memory-Sync-Automatique-31c5d20f18728150910fc5e39e0e0ae4
